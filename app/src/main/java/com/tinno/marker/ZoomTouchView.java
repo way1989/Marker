@@ -1,27 +1,9 @@
-/*
- * Copyright (C) 2013 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.tinno.marker;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -117,73 +99,70 @@ public class ZoomTouchView extends View {
         }
     }
 
-    @SuppressLint("NewApi")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         int action = event.getActionMasked();
 
-        if (isEnabled()) {
-            ViewConfiguration vc = ViewConfiguration.get(getContext());
-            //final Matrix currentM = mSlate.getMatrix();
+        if (!isEnabled())
+            return super.onTouchEvent(event);
 
-            if (action == MotionEvent.ACTION_DOWN
-                    || action == MotionEvent.ACTION_POINTER_DOWN
-                    || action == MotionEvent.ACTION_POINTER_UP
-                    || action == MotionEvent.ACTION_UP) {
-                mTouchPoint[0] = mTouchPoint[1] = -1f;
-                if (action == MotionEvent.ACTION_DOWN) {
-                    final long now = event.getEventTime();
-                    if (now - mTouchTime < ViewConfiguration.getDoubleTapTimeout()) {
-                        mTouchTime = 0;
-                        doubleClick(event);
-                    } else {
-                        mTouchTime = now;
-                    }
-                } else if (action == MotionEvent.ACTION_POINTER_DOWN) {
-                    mTouchTime = 0; // no double-tap for other fingers
+        ViewConfiguration vc = ViewConfiguration.get(getContext());
+        //final Matrix currentM = mSlate.getMatrix();
+
+        if (action == MotionEvent.ACTION_DOWN
+                || action == MotionEvent.ACTION_POINTER_DOWN
+                || action == MotionEvent.ACTION_POINTER_UP
+                || action == MotionEvent.ACTION_UP) {
+            mTouchPoint[0] = mTouchPoint[1] = -1f;
+            if (action == MotionEvent.ACTION_DOWN) {
+                final long now = event.getEventTime();
+                if (now - mTouchTime < ViewConfiguration.getDoubleTapTimeout()) {
+                    mTouchTime = 0;
+                    doubleClick(event);
+                } else {
+                    mTouchTime = now;
                 }
-            } else if (action == MotionEvent.ACTION_MOVE) {
-                if (mTouchPoint[0] < 0) {
-                    mInitialZoomMatrix.set(mSlate.getZoom());
-                    mSlate.getZoomPos(mInitialPos);
+            } else if (action == MotionEvent.ACTION_POINTER_DOWN) {
+                mTouchTime = 0; // no double-tap for other fingers
+            }
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            if (mTouchPoint[0] < 0) {
+                mInitialZoomMatrix.set(mSlate.getZoom());
+                mSlate.getZoomPos(mInitialPos);
 
-                    mInitialSpan = getSpan(event);
-                    getCenter(event, mTouchPoint);
-                    mTouchPointDoc[0] = mTouchPoint[0] - mSlate.getZoomPosX();
-                    mTouchPointDoc[1] = mTouchPoint[1] - mSlate.getZoomPosY();
-                    mSlate.getZoomInv().mapPoints(mTouchPointDoc);
-                }
-                if (mInitialSpan != 0) {
-                    double span = getSpan(event);
-                    float scale = (float) (span / mInitialSpan);
+                mInitialSpan = getSpan(event);
+                getCenter(event, mTouchPoint);
+                mTouchPointDoc[0] = mTouchPoint[0] - mSlate.getZoomPosX();
+                mTouchPointDoc[1] = mTouchPoint[1] - mSlate.getZoomPosY();
+                mSlate.getZoomInv().mapPoints(mTouchPointDoc);
+            }
+            if (mInitialSpan != 0) {
+                double span = getSpan(event);
+                float scale = (float) (span / mInitialSpan);
 
-                    if (scale != 0f) {
-                        Matrix m = new Matrix(mInitialZoomMatrix);
-                        final float currentScale = getScale(m);
+                if (scale != 0f) {
+                    Matrix m = new Matrix(mInitialZoomMatrix);
+                    final float currentScale = getScale(m);
 
-                        scale = Math.max(Math.min(scale * currentScale, 20.0f), 0.1f)
-                                / currentScale;
+                    scale = Math.max(Math.min(scale * currentScale, 20.0f), 0.1f) / currentScale;
 
-                        m.preScale(scale, scale, mTouchPointDoc[0], mTouchPointDoc[1]);
+                    m.preScale(scale, scale, mTouchPointDoc[0], mTouchPointDoc[1]);
 
-                        mSlate.setZoom(m);
-                    }
-                }
-
-                float[] newCenter = getCenter(event, null);
-                final float dx = newCenter[0] - mTouchPoint[0];
-                final float dy = newCenter[1] - mTouchPoint[1];
-                mSlate.setZoomPos(mInitialPos[0] + dx,
-                        mInitialPos[1] + dy);
-
-                if (Math.hypot(dx, dy) > vc.getScaledTouchSlop()) {
-                    mTouchTime = 0; // no double tap now
+                    mSlate.setZoom(m);
                 }
             }
-            if (DEBUG_OVERLAY) invalidate();
-            return true;
+
+            float[] newCenter = getCenter(event, null);
+            final float dx = newCenter[0] - mTouchPoint[0];
+            final float dy = newCenter[1] - mTouchPoint[1];
+            mSlate.setZoomPos(mInitialPos[0] + dx, mInitialPos[1] + dy);
+
+            if (Math.hypot(dx, dy) > vc.getScaledTouchSlop()) {
+                mTouchTime = 0; // no double tap now
+            }
         }
-        return false;
+        if (DEBUG_OVERLAY) invalidate();
+        return true;
     }
 
     public void setSlate(Slate slate) {
@@ -202,24 +181,18 @@ public class ZoomTouchView extends View {
 
         //final float scale = m.mapRadius(1f);
         final float scale = getScale(m);
-        canvas.drawText(String.format("%d%% %+d,%+d",
-                (int) (scale * 100f),
-                x,
-                y),
+        canvas.drawText(String.format("%d%% %+d,%+d", (int) (scale * 100f), x, y),
                 canvas.getWidth() - 200, canvas.getHeight() - 20, mZoomPaint);
 
         if (!DEBUG_OVERLAY) return;
 
         setVisibility(View.VISIBLE);
-        //canvas.drawColor(0xFFFFFF00);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            setAlpha(0.5f);
-        }
+        setAlpha(0.5f);
         Paint pt = new Paint();
         pt.setFlags(Paint.ANTI_ALIAS_FLAG);
         pt.setTextSize(20f);
         pt.setColor(0x80FF0000);
         if (mTouchPoint[0] != 0)
-            canvas.drawCircle(mTouchPoint[0], mTouchPoint[1], 50 * (float) mSlate.getScaleX(), pt);
+            canvas.drawCircle(mTouchPoint[0], mTouchPoint[1], 50 * mSlate.getScaleX(), pt);
     }
 }
