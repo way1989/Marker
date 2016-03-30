@@ -1,22 +1,5 @@
-/*
- * Copyright (C) 2012 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.tinno.marker;
 
-import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.res.Resources;
@@ -54,7 +37,6 @@ public class Slate extends View {
     public static final int FLAG_DEBUG_TILES = 1 << 3;
     public static final int FLAG_DEBUG_EVERYTHING = ~0;
     public static final int MAX_POINTERS = 10;
-    public static final boolean ASSUME_STYLUS_CALIBRATED = true;
     // keep these in sync with penType in values/attrs.xml
     public static final int TYPE_WHITEBOARD = 0;
     public static final int TYPE_FELTTIP = 1;
@@ -65,7 +47,7 @@ public class Slate extends View {
     //    public static final int SHAPE_BITMAP_CIRCLE = 2;
     public static final int SHAPE_BITMAP_AIRBRUSH = 3;
     public static final int SHAPE_FOUNTAIN_PEN = 4;
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = BuildConfig.DEBUG;
     static final String TAG = "Slate";
     static final int DENSITY = 1;
     private static final int SMOOTHING_FILTER_WLEN = 6;
@@ -86,8 +68,8 @@ public class Slate extends View {
     private float mRadiusMax;
     private TiledBitmapCanvas mTiledCanvas;
     private Bitmap mPendingPaintBitmap;
-    //    private Bitmap mCircleBits;
-//    private Rect mCircleBitsFrame;
+    //private Bitmap mCircleBits;
+    //private Rect mCircleBitsFrame;
     private Bitmap mAirbrushBits;
     private Rect mAirbrushBitsFrame;
     private Bitmap mFountainPenBits;
@@ -124,16 +106,11 @@ public class Slate extends View {
         return mvals[0];
     }
 
-    final static boolean hasPointerCoords() {
-        return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ECLAIR_MR1);
-    }
-
-    final static boolean hasToolType() {
+    static boolean hasToolType() {
         return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH);
     }
 
-    @SuppressLint("NewApi")
-    final static int getToolTypeCompat(MotionEvent me, int index) {
+    static int getToolTypeCompat(MotionEvent me, int index) {
         if (hasToolType()) {
             return me.getToolType(index);
         }
@@ -159,7 +136,6 @@ public class Slate extends View {
         return f < a ? a : (f > b ? b : f);
     }
 
-    @SuppressLint("NewApi")
     private void init() {
 //        setWillNotCacheDrawing(true);
 //        setDrawingCacheEnabled(false);
@@ -168,13 +144,10 @@ public class Slate extends View {
 
         // setup brush bitmaps
         final ActivityManager am = (ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            mMemClass = am.getLargeMemoryClass();
-        } else {
-            mMemClass = am.getMemoryClass();
-        }
+        mMemClass = am.getLargeMemoryClass();
+
         mLowMem = (mMemClass <= 16);
-        if (true || DEBUG) {
+        if (DEBUG) {
             Log.v(TAG, "Slate.init: memClass=" + mMemClass + (mLowMem ? " (LOW)" : ""));
         }
 
@@ -211,14 +184,12 @@ public class Slate extends View {
 
         setFocusable(true);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            if (HWLAYER) {
-                setLayerType(View.LAYER_TYPE_HARDWARE, null);
-            } else if (SWLAYER) {
-                setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            } else {
-                setLayerType(View.LAYER_TYPE_NONE, null);
-            }
+        if (HWLAYER) {
+            setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        } else if (SWLAYER) {
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        } else {
+            setLayerType(View.LAYER_TYPE_NONE, null);
         }
 
         mWorkspacePaint = new Paint();
@@ -226,7 +197,7 @@ public class Slate extends View {
 
         mBlitPaint = new Paint();
 
-        if (true) {
+        if (DEBUG) {
             mDebugPaints[0] = new Paint();
             mDebugPaints[0].setStyle(Style.STROKE);
             mDebugPaints[0].setStrokeWidth(2.0f);
@@ -380,8 +351,7 @@ public class Slate extends View {
                 mGraphPaint1.setColor(0xFFFF8000);
 
             String s = (r < 0) ? "--" : String.format("%s %.4f",
-                    ((st.getLastTool() == MotionEvent.TOOL_TYPE_STYLUS) ? "S" : "F"),
-                    r);
+                    ((st.getLastTool() == MotionEvent.TOOL_TYPE_STYLUS) ? "S" : "F"), r);
 
             graph.drawText(s, left, bottom - 2, mGraphPaint1);
 
@@ -500,8 +470,7 @@ public class Slate extends View {
     }
 
     @Override
-    protected void onSizeChanged(int w, int h, int oldw,
-                                 int oldh) {
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         if (mTiledCanvas != null) return;
 
         final int widthPx = DENSITY * w;
@@ -525,16 +494,8 @@ public class Slate extends View {
                 widthPx * heightPx * 4 * numVersions,
                 memCeiling
         ));
-        mTiledCanvas = new TiledBitmapCanvas(
-                widthPx,
-                heightPx,
-                Bitmap.Config.ARGB_8888,
-                TiledBitmapCanvas.DEFAULT_TILE_SIZE,
-                numVersions
-        );
-        if (mTiledCanvas == null) {
-            throw new RuntimeException("onSizeChanged: Unable to allocate main buffer (" + w + "x" + h + ")");
-        }
+        mTiledCanvas = new TiledBitmapCanvas(widthPx, heightPx, Bitmap.Config.ARGB_8888,
+                TiledBitmapCanvas.DEFAULT_TILE_SIZE, numVersions);
 
         final Bitmap b = mPendingPaintBitmap;
         if (b != null) {
@@ -609,7 +570,6 @@ public class Slate extends View {
         return span;
     }
 
-    @SuppressLint("NewApi")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         final int action = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.FROYO)
@@ -632,10 +592,7 @@ public class Slate extends View {
 
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN
                 || action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
-            int j = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.FROYO)
-                    ? event.getActionIndex()
-                    : 0;
-
+            int j = event.getActionIndex();
             mTmpSpot.update(
                     event.getX(j),
                     event.getY(j),
@@ -665,9 +622,9 @@ public class Slate extends View {
                             getToolTypeCompat(event, j)
                     );
                     if ((mDebugFlags & FLAG_DEBUG_STROKES) != 0) {
-                        if (dbgX >= 0) {
+                        //if (dbgX >= 0) {
                             //mTiledCanvas.drawLine(dbgX, dbgY, mTmpSpot.x, mTmpSpot.y, mDebugPaints[3]);
-                        }
+                        //}
                         dbgX = mTmpSpot.x;
                         dbgY = mTmpSpot.y;
                         dbgRect.union(dbgX - 1, dbgY - 1, dbgX + 1, dbgY + 1);
@@ -685,9 +642,9 @@ public class Slate extends View {
                         getToolTypeCompat(event, j)
                 );
                 if ((mDebugFlags & FLAG_DEBUG_STROKES) != 0) {
-                    if (dbgX >= 0) {
+                    //if (dbgX >= 0) {
                         //mTiledCanvas.drawLine(dbgX, dbgY, mTmpSpot.x, mTmpSpot.y, mDebugPaints[3]);
-                    }
+                    //}
                     dbgX = mTmpSpot.x;
                     dbgY = mTmpSpot.y;
                     dbgRect.union(dbgX - 1, dbgY - 1, dbgX + 1, dbgY + 1);
@@ -767,7 +724,7 @@ public class Slate extends View {
         public void plot(Spot s) {
             final float pressureNorm;
 
-            if (ASSUME_STYLUS_CALIBRATED && s.tool == MotionEvent.TOOL_TYPE_STYLUS) {
+            if (s.tool == MotionEvent.TOOL_TYPE_STYLUS) {
                 pressureNorm = s.pressure;
             } else {
                 pressureNorm = mPressureCooker.getAdjustedPressure(s.pressure);
